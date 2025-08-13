@@ -1,0 +1,15 @@
+
+@RestController
+@RequestMapping("/api/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @PostMapping("/register")
+    public ResponseEntity<ResponseStructure<EmployeeDto>> registerEmployee(@RequestBody EmployeeDto employeeDto) {
+        ResponseStructure<EmployeeDto> response = new ResponseStructure<>();
+        try {

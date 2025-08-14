@@ -1,15 +1,196 @@
 
-@RestController
-@RequestMapping("/api/employees")
-public class EmployeeController {
+Step___1
+createConfigClass
 
-    @Autowired
-    private EmployeeService employeeService;
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final UserDetailsService customUserDetailsService;
 
-    @PostMapping("/register")
-    public ResponseEntity<ResponseStructure<EmployeeDto>> registerEmployee(@RequestBody EmployeeDto employeeDto) {
-        ResponseStructure<EmployeeDto> response = new ResponseStructure<>();
+    public SecurityConfig(UserDetailsService customUserDetailsService) {
+        this.customUserDetailsService = customUserDetailsService;
+    }
+
+    @Bean
+    public AuthenticationManager authManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public AuthenticationProvider authProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(customUserDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/dudh/ajfheiu/dd", "/dndhdh/hhd/jdd").permitAll()
+                .anyRequest().authenticated()
+            )
+            .build();
+    }
+}
+
+Step_____2
+
+@Service
+public class JwtService {
+
+private static final String SECRET_KEY = "your-very-secret-key";
+    private static final long EXPIRATION_TIME = 86400000; // 1 day in milliseconds
+
+    public String generateToken(String username, String role) {
+        return JWT.create()
+                .withSubject(username)
+                .withClaim("role", role)
+                .withIssuedAt(new Date())
+                .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .sign(Algorithm.HMAC256(SECRET_KEY));
+    }
+public String validateTokenAndGetSubject(String token) {
+    try {
+      		return JWT
+		.require(Algorithm.HMAC256(SECRET_KEY))
+                .build()
+                .verify(token) // Verifies signature and expiration automatically
+                .getSubject();
+    } catch (Exception e) {
+        // Log or handle invalid token
+        return null;
+    }
+}
+
+
+} 
+
+
+Step____3
+Create a jwt filterClass
+
+// Step 3: Create a JWT filter class
+
+What This Filter Does:
+Checks if a JWT token is present in the request.
+Validates the token and extracts the username.
+Loads user details from the database.
+Sets the authentication in the Spring Security context.
+Lets authenticated users proceed to their requested resources.
+Let me know if you want me to help with writing the JwtService used here or the UserDetailsService!
+
+
+
+
+
+// This class intercepts every HTTP request once and checks if a valid JWT token is present
+public class JwtFilter extends OncePerRequestFilter {
+
+    // Inject your JWT service and UserDetailsService
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    // Constructor-based dependency injection
+    public JwtFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+
+        // Extract the Authorization header from the HTTP request
+        String authHeader = request.getHeader("Authorization");
+
+        // Check if the header is present and starts with "Bearer "
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+
+            // Extract the JWT token by removing the "Bearer " prefix
+            String  token = authHeader.substring(7);
+
+            // Validate the token and extract the subject (email/username)
+            String email = jwtService.validateTokenAndGetSubject(token);
+        }
+
+        // check If an email was successfully extracted and no authentication is currently set
+        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+            // Load the user details (username, roles, etc.) from the database or in-memory This provides user authorities (roles) for Spring Security. store
+            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+            // Create an authentication token using the user details
+            // No password is needed because we're using JWT, which is already verified
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails, 
+                            null, 
+                            userDetails.getAuthorities()
+                    );
+
+            // Store the authentication object in the SecurityContext
+            // This marks the user as authenticated for the duration of the request
+		authentication.setDetails(new WebAuthenticationSource().buildDetails(request);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        }
+
+        // Continue processing the request through the remaining filter chain
+        filterChain.doFilter(request, response);
+    }
+
+
+Step 4------- then Login
+
+@PostMapping("/login")
+    public ResponseEntity<ResponseStructure<LoginDto>> userLogin(@RequestBody LoginDto loginDto) {
+        ResponseStructure<LoginDto> response = new ResponseStructure<>();
+
         try {
+            // Authenticate the user
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginDto.getEmail(), loginDto.getPassword()));
+
+            // Load user details to access roles
+            UserDetails userDetails = userDetailsService.loadUserByUsername(loginDto.getEmail());
+
+            // Generate JWT token with email and role
+            String role = userDetails.getAuthorities().iterator().next().getAuthority();
+            String token = jwtService.generateToken(loginDto.getEmail(), role);
+
+            // Set token into response DTO
+            loginDto.setToken(token);
+
+            response.setSuccess(true);
+            response.setMessage("Login successful");
+            response.setData(loginDto);
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
+
+        } catch (AuthenticationException e) {
+            response.setSuccess(false);
+            response.setMessage("Invalid username or password");
+            response.setData(null);
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        } catch (Exception e) {
+            response.setSuccess(false);
+            response.setMessage("An error occurred: " + e.getMessage());
+            response.setData(null);
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}
+
+
+}
+
+

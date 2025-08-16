@@ -1,0 +1,84 @@
+📝 AWS S3 File Upload Flow (Spring Boot - Note)
+
+when we are storeing only single Image
+
+✅ 1. Add AWS S3 Config in application.properties
+
+aws.bucket-name=springbucketbtm
+aws.region=ap=
+aws.access-key=
+aws.secret-key=
+
+Why?
+To provide AWS credentials and region details to the application so it can connect to S3.
+
+✅ 2. Create S3Config.java
+@Configuration
+public class S3Config {
+
+    @Value("${aws.region}")
+    private String region;
+
+    @Value("${aws.access-key}")
+    private String accessKey;
+
+    @Value("${aws.secret-key}")
+    private String secretKey;
+
+    @Bean
+    public S3Client s3Client() {
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
+        return S3Client.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .build();
+    }
+}
+
+Why?
+This creates a singleton S3Client bean using AWS credentials. It’s used later to upload files to the S3 bucket.
+
+
+
+✅ 3. Create S3Service.java
+
+@Service
+pub4
+Why?
+This service handles:
+
+Uploading a file to S3.
+
+Saving the image URL in the Car entity (in DB).
+
+Returns the S3 image URL.
+
+
+✅ 4. Create CarController.java
+
+@RestController
+@RequestMapping("/api/cars")
+public class CarController {
+
+    private final S3Service s3Service;
+
+    @Autowired
+    public CarController(S3Service s3Service) {
+        this.s3Service = s3Service;
+    }
+
+    @PostMapping("/{bucketName}/{carId}/upload-image")
+    public ResponseEntity<String> uploadCarImage(
+            @PathVariable Long carId,
+            @RequestParam("file") MultipartFile file
+    ) {
+        try {
+            String imageUrl = s3Service.uploadFile(file, carId);
+            return ResponseEntity.ok("Image uploaded successfully: " + imageUrl);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to upload image: " + e.getMessage());
+        }
+    }
+}
+
+step-----

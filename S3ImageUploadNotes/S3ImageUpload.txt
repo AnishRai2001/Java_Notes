@@ -81,4 +81,21 @@ public class CarController {
     }
 }
 
-step-----
+How to Explain in Interview
+
+👉 "In my project, I implemented image upload using AWS S3. The flow was simple:
+
+1. I stored AWS credentials and bucket details in application.properties.
+
+
+2. I created a S3Config class that provides a singleton S3Client bean using AWS SDK.
+
+
+3. Then I built a S3Service that handles file uploads — it prepares the PutObjectRequest, uploads to S3, and returns the file URL.
+
+
+4. Finally, I exposed a REST endpoint in CarController that takes MultipartFile from client, calls the service, and responds with the uploaded image URL.
+
+
+
+This way, whenever a user uploads an image for a Car entity, it gets stored in S3 and the image URL is stored in DB for later retrieval."
